@@ -1,10 +1,10 @@
 # Python to Linux Web App on Azure
 # Build your Python project and deploy it to Azure as a Linux Web App.
-# Change python version to one that's appropriate for your application.
+# Change python version to one thats appropriate for your application.
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
 trigger:
-- main
+- master
 
 variables:
   # Azure Resource Manager connection created during pipeline creation
@@ -12,18 +12,18 @@ variables:
   
   # Web app name
   webAppName: 'webappProjectUdacity'
-  
+
   # Agent VM image name
-  vmImageName: 'ubuntu-16.04'
-  
+  vmImageName: 'ubuntu-latest'
+
   # Environment name
-  environmentName: 'azure-devops'
-  
+  environmentName: 'flask-ml-service'
+
   # Project root folder. Point to the folder containing manage.py file.
   projectRoot: $(System.DefaultWorkingDirectory)
   
-  # Python version: 3.8
-  pythonVersion: '3.8'
+  # Python version: 3.7
+  pythonVersion: '3.7'
 
 stages:
 - stage: Build
@@ -37,10 +37,13 @@ stages:
       inputs:
         versionSpec: '$(pythonVersion)'
       displayName: 'Use Python $(pythonVersion)'
-      
+    
     - script: |
-        make setup
-        make install
+        python -m venv antenv
+        source antenv/bin/activate
+        python -m pip install --upgrade pip
+        pip install setup
+        pip install -r requirements.txt
       workingDirectory: $(projectRoot)
       displayName: "Install requirements"
 
@@ -62,19 +65,23 @@ stages:
   dependsOn: Build
   condition: succeeded()
   jobs:
-  - job: DeploymentJob
+  - deployment: DeploymentJob
     pool:
       vmImage: $(vmImageName)
-    steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '$(pythonVersion)'
-      displayName: 'Use Python version'
+    environment: $(environmentName)
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+            displayName: 'Use Python version'
 
-    - task: AzureWebApp@1
-      displayName: 'Deploy Azure Web App'
-      inputs:
-        azureSubscription: $(azureServiceConnectionId)
-        appType: 'webAppLinux'
-        appName: $(webAppName)
-        package: $(Pipeline.Workspace)/drop/$(Build.BuildId).zip
+          - task: AzureWebApp@1
+            displayName: 'Deploy Azure Web App : rob-udacity-webapp'
+            inputs:
+              azureSubscription: $(azureServiceConnectionId)
+              appName: $(webAppName)
+              package: $(Pipeline.Workspace)/drop/$(Build.BuildId).zip
