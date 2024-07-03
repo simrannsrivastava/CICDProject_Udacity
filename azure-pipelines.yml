@@ -5,10 +5,38 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+    addToPath: true
 
 - script: |
+    python -m venv venv
+    source venv/bin/activate
     pip install -r requirements.txt
-    python -m pytest
-  displayName: 'Install dependencies and run tests'
+  displayName: 'Install dependencies'
+
+- script: |
+    source venv/bin/activate
+    python -m unittest discover
+  displayName: 'Run tests'
+
+- task: CopyFiles@2
+  inputs:
+    contents: |
+      **/*
+    targetFolder: '$(Build.ArtifactStagingDirectory)'
+  displayName: 'Copy files to artifact staging directory'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)'
+    artifactName: 'drop'
+  displayName: 'Publish artifacts'
+
+- task: AzureWebApp@1
+  inputs:
+    azureSubscription: 'UdacityDS - 72'
+    appName: 'webappProjectUdacity'
+    package: '$(Build.ArtifactStagingDirectory)/drop'
+  displayName: 'Deploy to Azure App Service'
